@@ -48,19 +48,27 @@ In summary, the major features are
 Here's an overview of layers involved in TinyKV:
 
 ```
-+-----------------+--------------+
-|   TinyKV REPL   | TinyKV RPC   |
-+-----------------+--------------+
-|     TinyKV Direct Interface    |
-+--------------------------------+
-|    Log Structured Merge Tree   |
-+--------------------------------+
-| File Manipulation Abstractions |
-+--------------------------------+
-|           File System          |
-+--------------------------------+
-|               OS               |
-+--------------------------------+
++-----------------------------------+
+|             TinyKV RPC            |
++-----------------------------------+
+|  Distributed Protocol (Optional)  |
++-----------------------------------+
+|      TinyKV Direct Interface      |
++-----------------------------------+
+|    Put/Get/Delete   | Range Query |
++---------------------+-------------+
+|  Bloom Filter/Cuckoo Filter/SuRF  |
++-----------------------------------+
+|    In-Memory Hash Map/Skip List   |
++-----------------------------------+
+|     Log Structured Merge Tree     |
++-----------------------------------+
+|   File Manipulation Abstractions  |
++-----------------------------------+
+|            File System            |
++-----------------------------------+
+|          Operating System         |
++-----------------------------------+
 ```
 
 We define a `File Manipulation Abstractions` layer to achieve a further convenience to port TinyKV to other
