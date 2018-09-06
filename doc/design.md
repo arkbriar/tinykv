@@ -31,7 +31,7 @@ type DB interface {
 ```
 
 Also, we want to optimize for **write** and **sequential read**, and provide support for quick read
-for cascading keys like "/college/nju/course/algorithms/students", so we decide to use LSM-Tree as our on-disk data structure.
+for cascading keys like "/university/nju/course/algorithms/students", so we decide to use LSM-Tree as our on-disk data structure.
 
 Furthermore, we think we should have convenient interfaces along with the programming interface. So we decides
 to provide two interfaces: a REPL commandline interface and a RPC remote interface.
@@ -75,7 +75,7 @@ db := tinykv.NewDB(dbName, tinykv.NewOptions())
 
 // Open the database
 if err := db.Open(); err != nil {
-    // Handle the error and exit
+	// Handle the error and exit
 }
 
 // Manipulate the database
@@ -83,7 +83,7 @@ if err := db.Open(); err != nil {
 
 // Close the database
 if err := db.Close(); err != nil {
-    // Log the error
+	// Log the error
 }
 ```
 
@@ -94,19 +94,19 @@ if err := db.Close(); err != nil {
 key := "key1"
 // Put a new value to database entry for key
 if err := db.Put(key, "value1"); err != nil {
-    // Handle the error
+	// Handle the error
 }
 
 // Get the value for key
 if value, err := db.Get(key); err == nil {
-    // assert value == "value1", if there's no other process modify this entry
-    fmt.Println("%s: %s", key, value)
+	// assert value == "value1", if there's no other process modify this entry
+	fmt.Println("%s: %s", key, value)
 } else {
-    // Handle the error
+	// Handle the error
 }
 
 // Delete the entry
 if err := db.Delete(key); err != nil {
-    // Log the error
+	// Log the error
 }
 ```
