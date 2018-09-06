@@ -144,8 +144,12 @@ func NewWriteOptions() WriteOptions {
 	}
 }
 
+/*******************************************************************************
+  Here we define the DB interface and kvDB struct which implements DB.
+ ******************************************************************************/
+
 type DB interface {
-	// Open the database. Returns nil on success., and an error otherwise.
+	// Open the database. Returns nil on success, and an error otherwise.
 	Open() error
 
 	// Close the database. Returns nil on success, and an error otherwise.
