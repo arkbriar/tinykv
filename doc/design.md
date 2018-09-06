@@ -93,12 +93,12 @@ if err := db.Close(); err != nil {
 // Create and open a database to "db"
 key := "key1"
 // Put a new value to database entry for key
-if err := db.Put(key, "value1"); err != nil {
+if err := db.Put(key, "value1", tinykv.NewWriteOptions()); err != nil {
 	// Handle the error
 }
 
 // Get the value for key
-if value, err := db.Get(key); err == nil {
+if value, err := db.Get(key, tinykv.NewReadOptions()); err == nil {
 	// assert value == "value1", if there's no other process modify this entry
 	fmt.Println("%s: %s", key, value)
 } else {
@@ -106,7 +106,7 @@ if value, err := db.Get(key); err == nil {
 }
 
 // Delete the entry
-if err := db.Delete(key); err != nil {
+if err := db.Delete(key, tinykv.NewWriteOptions()); err != nil {
 	// Log the error
 }
 ```
