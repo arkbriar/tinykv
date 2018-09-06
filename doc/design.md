@@ -18,6 +18,13 @@ type DB interface {
 	// IsInvalidArgumentError(error).
 	Put(key, value string, options WriteOptions) error
 
+	// Perform a read-modify-write atomic operation on database entry for key.
+	// Returns old value and nil on success, and nil and an error otherwise.
+	// If there's no such key, the old value returned should be nil.
+	// If key or value is nil, it returns a invalid argument error (and can be distinguished by
+	// IsInvalidArgumentError(error)).
+	ReadModifyWrite(key, value string, options WriteOptions) (string, error)
+
 	// Get value of specified key from the database. Returns value and nil on success,
 	// and nil and an error otherwise.
 	// If key is not found, you will get an not found error. You can distinguish it
