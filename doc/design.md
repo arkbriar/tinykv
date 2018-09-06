@@ -42,8 +42,7 @@ In summary, the major features are
 
 1. Concurrent safe and thread efficient key-value store
 2. Optimize for write and sequential read
-3. Provide a REPL commandline interface
-4. Provide a RPC remote interface
+3. Provide a RPC remote interface
 
 Here's an overview of layers involved in TinyKV:
 
