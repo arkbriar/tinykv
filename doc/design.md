@@ -34,7 +34,7 @@ Also, we want to optimize for **write** and **sequential read**, and provide sup
 for cascading keys like "/university/nju/course/algorithms/students", so we decide to use LSM-Tree as our on-disk data structure.
 
 Furthermore, we think we should have convenient interfaces along with the programming interface. So we decides
-to provide two interfaces: a REPL commandline interface and a RPC remote interface.
+to provide a RPC remote interface.
 
 Since TinyKV should be concurrent-safe, we can manipulate entries concurrently from different processes.
 
@@ -48,27 +48,21 @@ In summary, the major features are
 Here's an overview of layers involved in TinyKV:
 
 ```
-+-----------------------------------+
-|             TinyKV RPC            |
-+-----------------------------------+
-|  Distributed Protocol (Optional)  |
-+-----------------------------------+
-|      TinyKV Direct Interface      |
-+-----------------------------------+
-|    Put/Get/Delete   | Range Query |
-+---------------------+-------------+
-|  Bloom Filter/Cuckoo Filter/SuRF  |
-+-----------------------------------+
-|    In-Memory Hash Map/Skip List   |
-+-----------------------------------+
-|     Log Structured Merge Tree     |
-+-----------------------------------+
-|   File Manipulation Abstractions  |
-+-----------------------------------+
-|            File System            |
-+-----------------------------------+
-|          Operating System         |
-+-----------------------------------+
++-------------------------------------------------------------+
+|                     TinyKV RPC Interface                    |
++-------------------------------------------------------------+
+| Distributed Protocol (Optional) | Authentication (Optional) |
++---------------------------------+---------------------------+
+|                 TinyKV Direct Interface (RW)                |
++-------------------------------------------------------------+
+|               Bloom Filter/Cuckoo Filter/SuRF               |
++-------------------------------------------------------------+
+|                 In-Memory Hash Map/Skip List                |
++-------------------------------------------------------------+
+|                File Manipulation Abstractions               |
++-------------------------------------------------------------+
+|              On-Disk Log Structured Merge Tree              |
++-------------------------------------------------------------+
 ```
 
 We define a `File Manipulation Abstractions` layer to achieve a further convenience to port TinyKV to other
