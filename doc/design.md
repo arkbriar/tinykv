@@ -54,21 +54,21 @@ In summary, the major features are
 Here's an overview of layers involved in TinyKV:
 
 ```
-+-------------------------------------------------------------+
-|                     TinyKV RPC Interface                    |
-+-------------------------------------------------------------+
-| Distributed Protocol (Optional) | Authentication (Optional) |
-+---------------------------------+---------------------------+
-|                 TinyKV Direct Interface (RW)                |
-+-------------------------------------------------------------+
-|               Bloom Filter/Cuckoo Filter/SuRF               |
-+-------------------------------------------------------------+
-|                 In-Memory Hash Map/Skip List                |
-+-------------------------------------------------------------+
-|                File Manipulation Abstractions               |
-+-------------------------------------------------------------+
-|              On-Disk Log Structured Merge Tree              |
-+-------------------------------------------------------------+
++---------------------------------------------------------------+
+|                      TinyKV RPC Interface                     |
++---------------------------------------------------------------+
+|  Distributed Protocol (Optional)  | Authentication (Optional) |
++-----------------------------------+---------------------------+
+|                  TinyKV Direct Interface (RW)                 |
++---------------------------------------------------------------+
+|                Bloom Filter/Cuckoo Filter/SuRF                |
++---------------------------------------------------------------+
+|                  In-Memory Hash Map/Skip List                 |
++---------------------------------------------------------------+
+|                 File Manipulation Abstractions                |
++---------------------------------------------------------------+
+| On-Disk Log Structured Merge Tree |      Write Ahead Log      |
++-----------------------------------+---------------------------+
 ```
 
 We define a `File Manipulation Abstractions` layer to achieve a further convenience to port TinyKV to other
