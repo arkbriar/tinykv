@@ -36,7 +36,7 @@ const CacheLineSize = 64
 // init function checks if epochEntry aligns to cache line size
 func init() {
 	if unsafe.Sizeof(epochEntry{}) != CacheLineSize {
-		panic("Epoch entry is not size of cache line! (sizeof(epochEntry) != 64)")
+		logrus.Fatal("Epoch entry is not size of cache line! (sizeof(epochEntry) != 64)")
 	}
 }
 
