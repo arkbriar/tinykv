@@ -22,12 +22,23 @@ package faster
 
 import (
 	"testing"
+	"unsafe"
 )
 
 func TestNewLightEpoch(t *testing.T) {
 	e := NewLightEpoch(64)
 
-	if e.table[0] == nil {
-		t.Fatalf("light epoch is not initialized correctly")
+	for i := 0; i < 64; i++ {
+		if uintptr(unsafe.Pointer(e.table[i]))&(CacheLineSize-1) != 0 {
+			t.Errorf("light epoch's entries are not alighed to cache line")
+		}
+
+		if i > 0 && (uintptr(unsafe.Pointer(e.table[i]))-uintptr(unsafe.Pointer(e.table[i-1]))) != CacheLineSize {
+			t.Errorf("light epoch's entries are not correctly")
+		}
+
+		if e.table[i] == nil || e.table[i].atomicPhaseFinished != RestPhase {
+			t.Errorf("light epoch is not initialized correctly")
+		}
 	}
 }
