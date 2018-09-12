@@ -22,14 +22,14 @@ package faster
 
 import "unsafe"
 
-func GetFirstAddress(buf []byte) unsafe.Pointer {
+func getFirstAddress(buf []byte) unsafe.Pointer {
 	if buf != nil && len(buf) != 0 {
 		return unsafe.Pointer(&buf[0])
 	}
 	return nil
 }
 
-func AlignedAlloc(alignment, size int) (origin []byte, start uintptr) {
+func alignedAlloc(alignment, size int) (origin []byte, start uintptr) {
 	if alignment <= 0 || size <= 0 {
 		return nil, 0
 	}

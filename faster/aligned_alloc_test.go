@@ -29,12 +29,12 @@ import (
 
 func TestAlignedAlloc(t *testing.T) {
 	alignment, size := 64, 64*20
-	origin, start := AlignedAlloc(alignment, size)
+	origin, start := alignedAlloc(alignment, size)
 	if uint64(start)%uint64(alignment) != 0 {
 		t.Errorf("allocated start is not aligned to %d, start is %d", alignment, start)
 	}
 
-	originPtr := uintptr(GetFirstAddress(origin))
+	originPtr := uintptr(getFirstAddress(origin))
 	log.Printf("origin ptr is %x, start is %x", originPtr, start)
 	if start < originPtr || start+uintptr(size) >= originPtr+uintptr(size+alignment)-1 {
 		t.Errorf("allocated start overflow, origin ptr is %x, start is %x", originPtr, start)
@@ -43,7 +43,7 @@ func TestAlignedAlloc(t *testing.T) {
 
 func TestAlignedAllocEpochEntry(t *testing.T) {
 	alignment, size := 64, 64*20
-	origin, start := AlignedAlloc(alignment, size)
+	origin, start := alignedAlloc(alignment, size)
 
 	// convert start to *epochEntry
 	entry := (*epochEntry)(unsafe.Pointer(start))

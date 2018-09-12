@@ -160,8 +160,6 @@ type LightEpoch struct {
 	atomicCurrentEpoch uint64
 	// cached value of epoch that is safe to reclaim
 	atomicSafeToReclaimEpoch uint64
-	// byte buffer for epochEntry table
-	tableBuf []byte
 	// epoch table
 	table []*epochEntry
 	// table used slice
@@ -185,8 +183,8 @@ func NewLightEpoch(size uint32) *LightEpoch {
 		atomicDrainCount:         0,
 	}
 
-	tableBuf, start := AlignedAlloc(CacheLineSize, int((size+2)*CacheLineSize))
-	epoch.tableBuf = tableBuf
+	// to avoid gc, do not declare with _, start
+	tableBuf, start := alignedAlloc(CacheLineSize, int((size+2)*CacheLineSize))
 
 	for i := uint32(0); i < size+2; i++ {
 		// setup and initialize table
@@ -196,6 +194,12 @@ func NewLightEpoch(size uint32) *LightEpoch {
 	for i := uint32(0); i < drainListSize; i++ {
 		epoch.drainList[i].initialize()
 	}
+
+	// here we have epoch.table tracing memory allocated to tableBuf, it's safe to delete tableBuf
+	if len(tableBuf) > 0 {
+		tableBuf = nil
+	}
+
 	return epoch
 }
 
