@@ -23,6 +23,7 @@ package faster
 import (
 	"context"
 	"math"
+	"math/rand"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -163,6 +164,8 @@ type LightEpoch struct {
 	tableBuf []byte
 	// epoch table
 	table []*epochEntry
+	// table used slice
+	tableUsed []int32
 	// number of entries in epoch table
 	entryNum uint32
 	// count of drain actions
@@ -177,6 +180,7 @@ func NewLightEpoch(size uint32) *LightEpoch {
 		atomicCurrentEpoch:       1,
 		atomicSafeToReclaimEpoch: 0,
 		table:                    make([]*epochEntry, size+2),
+		tableUsed:                make([]int32, size+2),
 		entryNum:                 size,
 		atomicDrainCount:         0,
 	}
@@ -195,8 +199,27 @@ func NewLightEpoch(size uint32) *LightEpoch {
 	return epoch
 }
 
+// FindAndReserveEmptyEntry finds an empty entry and returns its index
+func (epoch *LightEpoch) FindAndReserveEmptyEntry() int {
+	startIdx := rand.Int()
+	iteration := 0
+	for {
+		for i := 0; i < int(epoch.entryNum); i++ {
+			idx := 1 + (startIdx+i)%int(epoch.entryNum)
+			if atomic.CompareAndSwapInt32(&epoch.tableUsed[idx], 0, 1) {
+				return idx
+			}
+			iteration++
+		}
+
+		if iteration > int(3*epoch.entryNum) {
+			panic("Unable to find an empty entry, try increasing the epoch table size")
+		}
+	}
+}
+
 // Protect enters the thread into the protected code region
-func (epoch *LightEpoch) Protect(entryIdx uint32) uint64 {
+func (epoch *LightEpoch) Protect(entryIdx int) uint64 {
 	entry := epoch.table[entryIdx]
 	entry.localCurrentEpoch = atomic.LoadUint64(&epoch.atomicCurrentEpoch)
 	return entry.localCurrentEpoch
@@ -204,7 +227,7 @@ func (epoch *LightEpoch) Protect(entryIdx uint32) uint64 {
 
 // ProtectAndDrain enters the thread into the protected code region and
 // processes entries in drain list if possible
-func (epoch *LightEpoch) ProtectAndDrain(entryIdx uint32) uint64 {
+func (epoch *LightEpoch) ProtectAndDrain(entryIdx int) uint64 {
 	entry := epoch.table[entryIdx]
 	entry.localCurrentEpoch = atomic.LoadUint64(&epoch.atomicCurrentEpoch)
 	if atomic.LoadUint32(&epoch.atomicDrainCount) > 0 {
@@ -213,27 +236,28 @@ func (epoch *LightEpoch) ProtectAndDrain(entryIdx uint32) uint64 {
 	return entry.localCurrentEpoch
 }
 
-func (epoch *LightEpoch) ReentrantProtect(entryIdx uint32) uint64 {
+func (epoch *LightEpoch) ReentrantProtect(entryIdx int) uint64 {
 	entry := epoch.table[entryIdx]
+	entry.reentrant++
+
 	if Unprotected != entry.localCurrentEpoch {
 		return entry.localCurrentEpoch
 	}
 
 	entry.localCurrentEpoch = atomic.LoadUint64(&epoch.atomicCurrentEpoch)
-	entry.reentrant++
 	return entry.localCurrentEpoch
 }
 
-func (epoch *LightEpoch) IsProtected(entryIdx uint32) bool {
+func (epoch *LightEpoch) IsProtected(entryIdx int) bool {
 	return epoch.table[entryIdx].localCurrentEpoch != Unprotected
 }
 
 // Unprotect exits the thread from the protected code region
-func (epoch *LightEpoch) Unprotect(entryIdx uint32) {
+func (epoch *LightEpoch) Unprotect(entryIdx int) {
 	epoch.table[entryIdx].localCurrentEpoch = Unprotected
 }
 
-func (epoch *LightEpoch) ReentrantUnprotect(entryIdx uint32) {
+func (epoch *LightEpoch) ReentrantUnprotect(entryIdx int) {
 	entry := epoch.table[entryIdx]
 	entry.reentrant--
 	if entry.reentrant == 0 {
