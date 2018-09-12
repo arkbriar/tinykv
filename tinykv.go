@@ -20,7 +20,9 @@
 
 package tinykv
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // Byte constants to make codes more understandable.
 const (
@@ -179,14 +181,14 @@ type DB interface {
 	Close() error
 
 	// Put key-value pair into the database. Returns nil on success, and an error otherwise.
-	// If key or value is nil, it returns a invalid argument error. You can distinguish it using
+	// If key is empty, it returns a invalid argument error. You can distinguish it using
 	// IsInvalidArgumentError(error).
 	Put(key, value string, options WriteOptions) error
 
 	// Perform a read-modify-write atomic operation on database entry for key.
 	// Returns old value and nil on success, and nil and an error otherwise.
-	// If there's no such key, the old value returned should be nil.
-	// If key or value is nil, it returns a invalid argument error (and can be distinguished by
+	// If there's no such key, the old value returned should be empty.
+	// If key is empty, it returns a invalid argument error (and can be distinguished by
 	// IsInvalidArgumentError(error)).
 	ReadModifyWrite(key, value string, options WriteOptions) (string, error)
 
@@ -214,7 +216,7 @@ type kvDB struct {
 
 // NewDB creates a new database instance with "name" and given options.
 func NewDB(name string, options Options) DB {
-	return kvDB{options: options, name: name}
+	return &kvDB{options: options, name: name}
 }
 
 // DestroyDB destroys the database with "name" and given options.
@@ -241,22 +243,45 @@ func (db *kvDB) Close() error {
 	return &DBError{NotSupported, "unimplemented"}
 }
 
+func preCheckKeyValue(key, value *string) error {
+	if key != nil && *key == "" {
+		return &DBError{InvalidArgument, "key must not be empty"}
+	}
+	return nil
+}
+
 func (db *kvDB) Put(key, value string, options WriteOptions) error {
+	if err := preCheckKeyValue(&key, &value); err != nil {
+		return err
+	}
+
 	// TODO
 	return &DBError{NotSupported, "unimplemented"}
 }
 
-func (db *kvDB) ReadModifyWrite(key, value string, options WriteOptions) error {
+func (db *kvDB) ReadModifyWrite(key, value string, options WriteOptions) (string, error) {
+	if err := preCheckKeyValue(&key, &value); err != nil {
+		return "", err
+	}
+
 	// TODO
-	return &DBError{NotSupported, "unimplemented"}
+	return "", &DBError{NotSupported, "unimplemented"}
 }
 
 func (db *kvDB) Get(key string, options ReadOptions) (string, error) {
+	if err := preCheckKeyValue(&key, nil); err != nil {
+		return "", err
+	}
+
 	// TODO
 	return "", &DBError{NotSupported, "unimplemented"}
 }
 
 func (db *kvDB) Delete(key string, options WriteOptions) error {
+	if err := preCheckKeyValue(&key, nil); err != nil {
+		return err
+	}
+
 	// TODO
 	return &DBError{NotSupported, "unimplemented"}
 }
