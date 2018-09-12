@@ -27,7 +27,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/Sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 // CacheLineSize defines the common cache line size to 64
