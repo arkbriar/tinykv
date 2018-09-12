@@ -159,8 +159,10 @@ type LightEpoch struct {
 	atomicCurrentEpoch uint64
 	// cached value of epoch that is safe to reclaim
 	atomicSafeToReclaimEpoch uint64
+	// byte buffer for epochEntry table
+	tableBuf []byte
 	// epoch table
-	table []epochEntry
+	table []*epochEntry
 	// number of entries in epoch table
 	entryNum uint32
 	// count of drain actions
@@ -174,12 +176,17 @@ func NewLightEpoch(size uint32) *LightEpoch {
 	epoch := &LightEpoch{
 		atomicCurrentEpoch:       1,
 		atomicSafeToReclaimEpoch: 0,
-		table:                    make([]epochEntry, size+2),
+		table:                    make([]*epochEntry, size+2),
 		entryNum:                 size,
 		atomicDrainCount:         0,
 	}
 
+	tableBuf, start := AlignedAlloc(CacheLineSize, int((size+2)*CacheLineSize))
+	epoch.tableBuf = tableBuf
+
 	for i := uint32(0); i < size+2; i++ {
+		// setup and initialize table
+		epoch.table[i] = (*epochEntry)(unsafe.Pointer(start + uintptr(CacheLineSize)))
 		epoch.table[i].initialize()
 	}
 	for i := uint32(0); i < drainListSize; i++ {
@@ -190,7 +197,7 @@ func NewLightEpoch(size uint32) *LightEpoch {
 
 // Protect enters the thread into the protected code region
 func (epoch *LightEpoch) Protect(entryIdx uint32) uint64 {
-	entry := &epoch.table[entryIdx]
+	entry := epoch.table[entryIdx]
 	entry.localCurrentEpoch = atomic.LoadUint64(&epoch.atomicCurrentEpoch)
 	return entry.localCurrentEpoch
 }
@@ -198,7 +205,7 @@ func (epoch *LightEpoch) Protect(entryIdx uint32) uint64 {
 // ProtectAndDrain enters the thread into the protected code region and
 // processes entries in drain list if possible
 func (epoch *LightEpoch) ProtectAndDrain(entryIdx uint32) uint64 {
-	entry := &epoch.table[entryIdx]
+	entry := epoch.table[entryIdx]
 	entry.localCurrentEpoch = atomic.LoadUint64(&epoch.atomicCurrentEpoch)
 	if atomic.LoadUint32(&epoch.atomicDrainCount) > 0 {
 		epoch.Drain(entry.localCurrentEpoch)
@@ -207,7 +214,7 @@ func (epoch *LightEpoch) ProtectAndDrain(entryIdx uint32) uint64 {
 }
 
 func (epoch *LightEpoch) ReentrantProtect(entryIdx uint32) uint64 {
-	entry := &epoch.table[entryIdx]
+	entry := epoch.table[entryIdx]
 	if Unprotected != entry.localCurrentEpoch {
 		return entry.localCurrentEpoch
 	}
@@ -227,7 +234,7 @@ func (epoch *LightEpoch) Unprotect(entryIdx uint32) {
 }
 
 func (epoch *LightEpoch) ReentrantUnprotect(entryIdx uint32) {
-	entry := &epoch.table[entryIdx]
+	entry := epoch.table[entryIdx]
 	entry.reentrant--
 	if entry.reentrant == 0 {
 		entry.localCurrentEpoch = Unprotected
@@ -241,7 +248,8 @@ func (epoch *LightEpoch) Drain(nextEpoch uint64) {
 			atomic.LoadUint64(&epoch.drainList[i].atomicEpoch)
 		if triggerEpoch <= atomic.LoadUint64(&epoch.atomicSafeToReclaimEpoch) {
 			if epoch.drainList[i].tryPop(triggerEpoch) {
-				if atomic.AddUint32(&epoch.atomicDrainCount, -1) == 0 {
+				// atomic decrement epoch.atomicDrainCount by 1
+				if atomic.AddUint32(&epoch.atomicDrainCount, ^uint32(0)) == 0 {
 					break
 				}
 			}
@@ -293,14 +301,14 @@ func (epoch *LightEpoch) BumpCurrentEpochWithCallback(callback EpochCallbackFunc
 
 // ComputeNewSafeToReclaimEpoch computes latest epoch that is safe to reclaim, by scanning the epoch table
 func (epoch *LightEpoch) ComputeNewSafeToReclaimEpoch(currentEpoch uint64) uint64 {
-	oldestOngingCall := currentEpoch
+	oldestOngoingCall := currentEpoch
 	for i := uint32(1); i <= epoch.entryNum; i++ {
 		entryEpoch := epoch.table[i].localCurrentEpoch
-		if entryEpoch != Unprotected && entryEpoch < oldestOngingCall {
-			oldestOngingCall = entryEpoch
+		if entryEpoch != Unprotected && entryEpoch < oldestOngoingCall {
+			oldestOngoingCall = entryEpoch
 		}
 	}
-	atomic.StoreUint64(&epoch.atomicSafeToReclaimEpoch, oldestOngingCall-1)
+	atomic.StoreUint64(&epoch.atomicSafeToReclaimEpoch, oldestOngoingCall-1)
 	return atomic.LoadUint64(&epoch.atomicSafeToReclaimEpoch)
 }
 
@@ -326,7 +334,7 @@ func (epoch *LightEpoch) ResetPhaseFinished() {
 
 // FinishThreadPhase complete the specified phase
 func (epoch *LightEpoch) FinishThreadPhase(entryIdx, phase uint32) bool {
-	entry := &epoch.table[entryIdx]
+	entry := epoch.table[entryIdx]
 	atomic.StoreUint32(&entry.atomicPhaseFinished, phase)
 	// check if other threads have reported complete
 	for i := uint32(1); i < epoch.entryNum; i++ {
