@@ -188,7 +188,7 @@ func NewLightEpoch(size uint32) *LightEpoch {
 
 	for i := uint32(0); i < size+2; i++ {
 		// setup and initialize table
-		epoch.table[i] = (*epochEntry)(unsafe.Pointer(start + uintptr(CacheLineSize)))
+		epoch.table[i] = (*epochEntry)(unsafe.Pointer(start + uintptr(i*CacheLineSize)))
 		epoch.table[i].initialize()
 	}
 	for i := uint32(0); i < drainListSize; i++ {
