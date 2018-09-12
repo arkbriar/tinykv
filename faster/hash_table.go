@@ -28,7 +28,7 @@ import (
 )
 
 // 64 bit entry with memory layout like
-// | 48-bit address | 14-bit tag | 1-bit reserved | 1-bit tentative |
+// | 1-bit tentative | 1-bit reserved | 14-bit tag | 48-bit address |
 type HashBucketEntry uint64
 
 func (entry *HashBucketEntry) Equals(other HashBucketEntry) bool {
@@ -36,30 +36,30 @@ func (entry *HashBucketEntry) Equals(other HashBucketEntry) bool {
 }
 
 func (entry *HashBucketEntry) GetAddress() uint64 {
-	return uint64(*entry) >> 16
+	return uint64(*entry) & (1<<48 - 1)
 }
 
 func (entry *HashBucketEntry) SetAddress(addr uint64) {
 	ptr := (*uint64)(entry)
-	*ptr = (addr << 16) + (*ptr & 0xff)
+	*ptr = (*ptr & (uint64(0xffff) << 48)) + (addr & (1<<48 - 1))
 }
 
 func (entry *HashBucketEntry) GetTag() uint16 {
 	ptr := (*uint64)(entry)
-	return uint16((*ptr & 0xff) >> 2)
+	return uint16((*ptr >> 48) & 0x3fff)
 }
 
 func (entry *HashBucketEntry) SetTag(tag uint16) {
 	ptr := (*uint64)(entry)
-	*ptr = (*ptr & uint64(0xffffff00)) + (*ptr & 0x3) + uint64(tag<<2)&0xff
+	*ptr = (*ptr)&(1<<48-1) + *ptr&(uint64(1)<<63) + uint64(tag&0x3fff)<<48
 }
 
 func (entry *HashBucketEntry) IsTentative() bool {
-	return uint64(*entry)&0x1 != 0
+	return (uint64(*entry) >> 63) != 0
 }
 
 func (entry *HashBucketEntry) SetTentative() {
-	*(*uint64)(entry) |= 0x1
+	*(*uint64)(entry) |= uint64(1) << 63
 }
 
 func (entry *HashBucketEntry) PointerOfUint64() *uint64 {
