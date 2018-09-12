@@ -29,16 +29,16 @@ func getFirstAddress(buf []byte) unsafe.Pointer {
 	return nil
 }
 
-func alignedAlloc(alignment, size int) (origin []byte, start uintptr) {
+func alignedAlloc(alignment, size uint64) (origin []byte, ptr uintptr) {
 	if alignment <= 0 || size <= 0 {
 		return nil, 0
 	}
 
 	origin = make([]byte, size+alignment-1)
-	start = uintptr(unsafe.Pointer(&origin[0]))
-	if uint64(start)%uint64(alignment) != 0 {
-		offset := alignment - int(uint64(start)%uint64(alignment))
-		start = start + uintptr(offset)
+	ptr = uintptr(unsafe.Pointer(&origin[0]))
+	if uint64(ptr)%uint64(alignment) != 0 {
+		offset := alignment - uint64(ptr)%uint64(alignment)
+		ptr = ptr + uintptr(offset)
 	}
-	return origin, start
+	return origin, ptr
 }

@@ -24,6 +24,7 @@ import (
 	"context"
 	"math"
 	"math/rand"
+	"reflect"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -161,7 +162,7 @@ type LightEpoch struct {
 	// cached value of epoch that is safe to reclaim
 	atomicSafeToReclaimEpoch uint64
 	// epoch table
-	table []*epochEntry
+	table []epochEntry
 	// table used slice
 	tableUsed []int32
 	// number of entries in epoch table
@@ -177,18 +178,21 @@ func NewLightEpoch(size uint32) *LightEpoch {
 	epoch := &LightEpoch{
 		atomicCurrentEpoch:       1,
 		atomicSafeToReclaimEpoch: 0,
-		table:                    make([]*epochEntry, size+2),
+		table:                    nil,
 		tableUsed:                make([]int32, size+2),
 		entryNum:                 size,
 		atomicDrainCount:         0,
 	}
 
-	// to avoid gc, do not declare with _, start
-	tableBuf, start := alignedAlloc(CacheLineSize, int((size+2)*CacheLineSize))
+	// to avoid gc, do not declare with _, ptr
+	tableBuf, ptr := alignedAlloc(CacheLineSize, uint64((size+2)*CacheLineSize))
+	// setup buckets
+	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&epoch.table))
+	hdr.Data = ptr
+	hdr.Len = int(size + 2)
+	hdr.Cap = int(size + 2)
 
 	for i := uint32(0); i < size+2; i++ {
-		// setup and initialize table
-		epoch.table[i] = (*epochEntry)(unsafe.Pointer(start + uintptr(i*CacheLineSize)))
 		epoch.table[i].initialize()
 	}
 	for i := uint32(0); i < drainListSize; i++ {
@@ -196,7 +200,7 @@ func NewLightEpoch(size uint32) *LightEpoch {
 	}
 
 	// here we have epoch.table tracing memory allocated to tableBuf, it's safe to delete tableBuf
-	if len(tableBuf) > 0 {
+	if len(tableBuf) >= 0 {
 		tableBuf = nil
 	}
 
@@ -230,7 +234,7 @@ func (epoch *LightEpoch) ReleaseEntry(epochIdx int) {
 
 // Protect enters the thread into the protected code region
 func (epoch *LightEpoch) Protect(entryIdx int) uint64 {
-	entry := epoch.table[entryIdx]
+	entry := &epoch.table[entryIdx]
 	entry.localCurrentEpoch = atomic.LoadUint64(&epoch.atomicCurrentEpoch)
 	return entry.localCurrentEpoch
 }
