@@ -218,6 +218,12 @@ func (epoch *LightEpoch) FindAndReserveEmptyEntry() int {
 	}
 }
 
+// ReleaseEntry releases entry to light epoch
+func (epoch *LightEpoch) ReleaseEntry(epochIdx int) {
+	epoch.table[epochIdx].initialize()
+	atomic.StoreInt32(&epoch.tableUsed[epochIdx], 0)
+}
+
 // Protect enters the thread into the protected code region
 func (epoch *LightEpoch) Protect(entryIdx int) uint64 {
 	entry := epoch.table[entryIdx]
@@ -248,6 +254,7 @@ func (epoch *LightEpoch) ReentrantProtect(entryIdx int) uint64 {
 	return entry.localCurrentEpoch
 }
 
+// IsProtected checks if thread is in protected code region
 func (epoch *LightEpoch) IsProtected(entryIdx int) bool {
 	return epoch.table[entryIdx].localCurrentEpoch != Unprotected
 }
@@ -268,8 +275,7 @@ func (epoch *LightEpoch) ReentrantUnprotect(entryIdx int) {
 func (epoch *LightEpoch) Drain(nextEpoch uint64) {
 	epoch.ComputeNewSafeToReclaimEpoch(nextEpoch)
 	for i := uint32(0); i < drainListSize; i++ {
-		triggerEpoch :=
-			atomic.LoadUint64(&epoch.drainList[i].atomicEpoch)
+		triggerEpoch := atomic.LoadUint64(&epoch.drainList[i].atomicEpoch)
 		if triggerEpoch <= atomic.LoadUint64(&epoch.atomicSafeToReclaimEpoch) {
 			if epoch.drainList[i].tryPop(triggerEpoch) {
 				// atomic decrement epoch.atomicDrainCount by 1
@@ -283,8 +289,7 @@ func (epoch *LightEpoch) Drain(nextEpoch uint64) {
 
 // BumpCurrentEpoch increments the current epoch (global system state)
 func (epoch *LightEpoch) BumpCurrentEpoch() uint64 {
-	nextEpoch :=
-		atomic.AddUint64(&epoch.atomicCurrentEpoch, 1)
+	nextEpoch := atomic.AddUint64(&epoch.atomicCurrentEpoch, 1)
 	if atomic.LoadUint32(&epoch.atomicDrainCount) > 0 {
 		epoch.Drain(nextEpoch)
 	}
@@ -336,17 +341,18 @@ func (epoch *LightEpoch) ComputeNewSafeToReclaimEpoch(currentEpoch uint64) uint6
 	return atomic.LoadUint64(&epoch.atomicSafeToReclaimEpoch)
 }
 
+// SpinWaitForSafeToReclaim spin until safe-to-reclaim-epoch is larger than expected
 func (epoch *LightEpoch) SpinWaitForSafeToReclaim(currentEpoch, safeToReclaimEpoch uint64) {
 	for {
-		epoch.ComputeNewSafeToReclaimEpoch(currentEpoch)
-		if safeToReclaimEpoch > atomic.LoadUint64(&epoch.atomicSafeToReclaimEpoch) {
+		if safeToReclaimEpoch <= epoch.ComputeNewSafeToReclaimEpoch(currentEpoch) {
 			break
 		}
 	}
 }
 
+// IsSafeToReclaim checks if this epoch is safe to reclaim
 func (epoch *LightEpoch) IsSafeToReclaim(expectedEpoch uint64) bool {
-	return expectedEpoch < atomic.LoadUint64(&epoch.atomicSafeToReclaimEpoch)
+	return expectedEpoch <= atomic.LoadUint64(&epoch.atomicSafeToReclaimEpoch)
 }
 
 // ResetPhaseFinished is a CPR checkpoint function
@@ -356,8 +362,8 @@ func (epoch *LightEpoch) ResetPhaseFinished() {
 	}
 }
 
-// FinishThreadPhase complete the specified phase
-func (epoch *LightEpoch) FinishThreadPhase(entryIdx, phase uint32) bool {
+// MarkAndCheckIfFinished complete the specified phase of this thread and checks if it is finished by all threads
+func (epoch *LightEpoch) MarkAndCheckIfFinished(entryIdx, phase uint32) bool {
 	entry := epoch.table[entryIdx]
 	atomic.StoreUint32(&entry.atomicPhaseFinished, phase)
 	// check if other threads have reported complete
