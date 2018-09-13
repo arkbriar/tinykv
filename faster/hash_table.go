@@ -24,8 +24,48 @@ import (
 	"github.com/sirupsen/logrus"
 	"hash"
 	"reflect"
+	"sync/atomic"
 	"unsafe"
 )
+
+type AtomicByteSlice atomic.Value
+
+func (s *AtomicByteSlice) Load() []byte {
+	v := (*atomic.Value)(s)
+	if slice := v.Load(); slice != nil {
+		realSlice, _ := slice.([]byte)
+		return realSlice
+	}
+	return nil
+}
+
+func (s *AtomicByteSlice) Store(slice []byte) {
+	if slice == nil {
+		return
+	}
+
+	v := (*atomic.Value)(s)
+	v.Store(slice)
+}
+
+// 64-bit record header with memory layout like
+// | 16-bit unused | 48-bit address |
+type RecordHeader uint64
+
+func (hdr *RecordHeader) AtomicLoadAddress() uintptr {
+	return uintptr(atomic.LoadUint64((*uint64)(hdr)) & (1<<48 - 1))
+}
+
+type Record struct {
+	header RecordHeader
+	key    string
+	value  AtomicByteSlice
+}
+
+func (r *Record) AtomicNextRecord() *Record {
+	nextRecordUintPtr := r.header.AtomicLoadAddress()
+	return (*Record)(unsafe.Pointer(nextRecordUintPtr))
+}
 
 // 64 bit entry with memory layout like
 // | 1-bit tentative | 1-bit reserved | 14-bit tag | 48-bit address |
