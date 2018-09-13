@@ -24,6 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"hash"
 	"reflect"
+	"sync/atomic"
 	"unsafe"
 )
 
@@ -54,8 +55,12 @@ func (entry *HashBucketEntry) SetTag(tag uint16) {
 	*ptr = (*ptr)&(1<<48-1) + *ptr&(uint64(1)<<63) + uint64(tag&0x3fff)<<48
 }
 
-func (entry *HashBucketEntry) IsTentative() bool {
+func (entry *HashBucketEntry) Tentative() bool {
 	return (uint64(*entry) >> 63) != 0
+}
+
+func (entry *HashBucketEntry) IsUnused() bool {
+	return uint64(*entry) == 0
 }
 
 func (entry *HashBucketEntry) SetTentative() {
@@ -68,6 +73,14 @@ func (entry *HashBucketEntry) PointerOfUint64() *uint64 {
 
 func (entry *HashBucketEntry) Uint64Value() uint64 {
 	return uint64(*entry)
+}
+
+func (entry *HashBucketEntry) AtomicLoadValue() HashBucketEntry {
+	return HashBucketEntry(atomic.LoadUint64((*uint64)(entry)))
+}
+
+func (entry *HashBucketEntry) AtomicCompareAndSwap(old HashBucketEntry, new HashBucketEntry) bool {
+	return atomic.CompareAndSwapUint64((*uint64)(entry), uint64(old), uint64(new))
 }
 
 type HashBucket struct {
